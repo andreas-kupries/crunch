@@ -1,0 +1,72 @@
+#!/usr/bin/env tclsh8.5
+# -*- tcl -*-
+
+package require Tcl 8.5
+
+# arguments
+# ---------------------------------------------- process driver supplied
+# - repository (path to fossil file)
+# - uuid       (revision to checkout and build)
+# - path to tmp space holding the checkout (sub dir 'src')
+# ---------------------------------------------- user supplied arguments
+# - cmd + args to run on the build (ok, or fail).
+# # ## ### ##### ######## ############# ##################### ##################################
+## Argument processing
+
+set cmd [lassign $argv repo uuid checkout]
+
+puts {COMPILE....}
+puts "....ID......... $uuid"
+puts "....SOURCES.... $checkout/src"
+puts "....DESTINATION $checkout/build"
+puts "....RESULTS.... $checkout/results"
+
+# # ## ### ##### ######## ############# ##################### ##################################
+## Path normalization to be independent of the upcoming changes to
+## CWD, plus setting up derived values.
+
+set src [file normalize $checkout/src]
+set dst [file normalize $checkout/build]
+set res [file normalize $checkout/results]
+
+set configure $src/$tcl_platform(platform)/configure
+set log       $dst/log
+set here      [pwd]
+
+# # ## ### ##### ######## ############# ##################### ##################################
+
+puts {....INITIALIZE}
+file mkdir $res
+file mkdir $dst
+cd $dst
+
+
+file delete -force build install log
+file mkdir build install
+#touch    log
+
+# # ## ### ##### ######## ############# ##################### ##################################
+## Building
+
+cd build
+
+puts {....CONFIGURE}
+exec >>& $log $configure --enable-threads --prefix=$dst/install
+
+puts {....MAKE}
+exec >>& $log make all install
+
+# # ## ### ##### ######## ############# ##################### ##################################
+## Run the post-build code.
+
+cd $here
+set xcmd [linsert $cmd 1 $repo $uuid $checkout]
+
+catch {
+    puts ".......... : $xcmd"
+    exec >@ stdout 2>@ stderr {*}$xcmd
+}
+
+# # ## ### ##### ######## ############# ##################### ##################################
+puts {....DONE}
+exit 0

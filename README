@@ -1,0 +1,63 @@
+Example command:
+
+% ./process state ../../repo/tcl.fossil ./build_tcl ./build_ok build/tclsh ./save_check 
+
+Taking it apart, as scripts are run.
+
+==============================================
+./process state ../../repo/tcl.fossil ./build_tcl ./build_ok build/tclsh ./save_check 
+
+	Saves its state information to		state
+	Operates (read-only) on fossil repo	 ../../repo/tcl.fossil
+
+	Checks out all non-processed revisions, from the current tip
+	descending into the past. Follows time, not parental linkage.
+
+	Runs the following command on each revision.
+
+	./build_tcl %repo% %uuid% %checkout% ./build_ok build/tclsh ./save_check
+
+	%checkout% is the base directory for temp build state.
+	Sub directory 'src' is where the revision is checked out into.
+
+==============================================
+./build_tcl %repo% %uuid% %checkout% ./build_ok build/tclsh ./save_check
+
+	Looks for the sources in %checkout%/src
+	Assumes that the sources are for revision %uuid%.
+	Builds the sources, placing build state into
+
+		%checkout%/build/build		build directory
+		%checkout%/build/install	build destination, --prefix
+		%checkout%/build/log		build log (configure, make)
+
+	After each build, successful or not it calls
+
+	./build_ok %repo% %uuid% %checkout% build/tclsh ./save_check
+
+	to check if the build was succesful, or not.
+
+==============================================
+./build_ok %repo% %uuid% %checkout% build/tclsh ./save_check
+
+	Looks for the sources in %checkout%/src
+	Looks for the build in %checkout%/build
+
+	Looks for the sentinel file
+
+		%checkout%/build/build/tclsh
+
+	If present, build is OK, otherwise FAIL.
+	Calls
+
+	./save_check %repo% %uuid% %checkout% %result%
+
+	with this result.
+
+==============================================
+./save_check %repo% %uuid% %checkout% %result%
+
+	Extends the file
+		%checkout%/results/ok
+
+	with a line listing %result% and %uuid%.

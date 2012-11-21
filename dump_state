@@ -1,0 +1,31 @@
+#!/usr/bin/env tclsh
+# -*- tcl -*-
+package require Tcl 8.5
+package require sqlite3
+
+if {[llength $argv] != 1} {
+    puts stderr "Usage: $argv0 state"
+    exit 1
+}
+
+set cmd [lassign $argv state]
+
+# state - database holding processing state for easy restart after an
+#         abort. I.e. restart at point of abort, without re-doing the
+#	  completed parts. database is created if not existing.
+
+sqlite3 DB $state
+
+set count 0
+DB eval {
+    SELECT * FROM done
+} values {
+    incr count
+    set uuid $values(uuid)
+    puts "Processed : $uuid"
+}
+
+DB close
+
+puts "Processed: $count"
+exit 0
