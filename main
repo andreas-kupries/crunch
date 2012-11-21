@@ -1,0 +1,9 @@
+#!/bin/bash
+
+bindir=$(dirname $0)
+repository="$1"
+
+$bindir/process state $repository \
+	$bindir/build_tcl \
+		$bindir/build_ok build/tclsh \
+			$bindir/save_check

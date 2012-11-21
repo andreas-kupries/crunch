@@ -1,33 +1,40 @@
 #!/usr/bin/env tclsh8.5
 # -*- tcl -*-
 
+# Arguments
+#
+# repository - path to fossil repository
+# uuid       - revision to build, already checked out.
+# sentinel   - path of marker file for ok build. Relative to CWD.
+# cmd + args - Command to run after the build completed.
+
+# Side channel arguments
+#
+# * CWD/src     - Checkout of revision to build
+# * CWD/build   - Build directory with results
+# * CWD/install - Install directory (--prefix)
+# * CWD/log     - Build log, configure & make
+
+# Results
+#
+# * Runs the command per revision, with check results
+
 package require Tcl 8.5
 
-# arguments
-# ---------------------------------------------- process driver supplied
-# - repository (path to fossil file)
-# - uuid       (revision to checkout and build)
-# - path to tmp space holding the checkout (sub dir 'src')
-# ---------------------------------------------- user supplied arguments
-# - file to check for to indicate a succesful build.
-# # ## ### ##### ######## ############# ##################### ##################################
-## Argument processing
+set cargs [lassign $argv repo uuid sentinel cmd]
+set cmd [file normalize $cmd]
 
-set cmd [lassign $argv repo uuid checkout sentinel]
+set base [file normalize [pwd]]
 
-puts {COMPILE....}
+puts {CHECK....}
 puts "....ID......... $uuid"
-puts "....SOURCES.... $checkout/src"
-puts "....DESTINATION $checkout/build"
-puts "....RESULTS.... $checkout/results"
-puts "....SENTINEL... $checkout/build/$sentinel"
+puts "....SENTINEL... $sentinel"
 
 # # ## ### ##### ######## ############# ##################### ##################################
 ## Path normalization to be independent of the upcoming changes to
 ## CWD, plus setting up derived values.
 
-set sentinel [file normalize $checkout/build/$sentinel]
-set res      [file normalize $checkout/results]
+set sentinel [file normalize $base/$sentinel]
 
 # # ## ### ##### ######## ############# ##################### ##################################
 
@@ -39,7 +46,7 @@ if {[file exists $sentinel]} {
     set signal FAIL
 }
 
-set xcmd [linsert $cmd 1 $repo $uuid $checkout $signal]
+set xcmd [list $cmd $repo $uuid $signal {*}$cargs]
 
 catch {
     puts ".......... : $xcmd"
@@ -48,5 +55,5 @@ catch {
 
 
 # # ## ### ##### ######## ############# ##################### ##################################
-puts {....DONE}
+puts {....DONE CHECK}
 exit 0

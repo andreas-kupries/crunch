@@ -1,48 +1,58 @@
 #!/usr/bin/env tclsh8.5
 # -*- tcl -*-
 
+# Arguments
+#
+# repository - path to fossil repository
+# uuid       - revision to build, already checked out.
+# cmd + args - Command to run after the build completed.
+
+# Side channel arguments
+#
+# * CWD/src - Checkout of revision to build
+
+# Results
+#
+# * Runs the command per revision, after the build
+# * CWD/build   - Build directory
+# * CWD/install - Install directory (--prefix)
+# * CWD/log     - Build log, configure & make
+
 package require Tcl 8.5
 
-# arguments
-# ---------------------------------------------- process driver supplied
-# - repository (path to fossil file)
-# - uuid       (revision to checkout and build)
-# - path to tmp space holding the checkout (sub dir 'src')
-# ---------------------------------------------- user supplied arguments
-# - cmd + args to run on the build (ok, or fail).
 # # ## ### ##### ######## ############# ##################### ##################################
 ## Argument processing
 
-set cmd [lassign $argv repo uuid checkout]
+set cargs [lassign $argv repo uuid cmd]
+set cmd [file normalize $cmd]
+
+set base [file normalize [pwd]]
 
 puts {COMPILE....}
 puts "....ID......... $uuid"
-puts "....SOURCES.... $checkout/src"
-puts "....DESTINATION $checkout/build"
-puts "....RESULTS.... $checkout/results"
+puts "....SOURCES.... $base/src"
+puts "....BUILD AREA. $base/build"
+puts "....DESTINATION $base/install"
+puts "....LOG........ $base/log"
 
 # # ## ### ##### ######## ############# ##################### ##################################
 ## Path normalization to be independent of the upcoming changes to
 ## CWD, plus setting up derived values.
 
-set src [file normalize $checkout/src]
-set dst [file normalize $checkout/build]
-set res [file normalize $checkout/results]
+set src [file normalize $base/src]
+set bld [file normalize $base/build]
+set dst [file normalize $base/install]
+set log [file normalize $base/log]
 
 set configure $src/$tcl_platform(platform)/configure
-set log       $dst/log
 set here      [pwd]
 
 # # ## ### ##### ######## ############# ##################### ##################################
 
 puts {....INITIALIZE}
-file mkdir $res
-file mkdir $dst
-cd $dst
-
 
 file delete -force build install log
-file mkdir build install
+file mkdir         build install
 #touch    log
 
 # # ## ### ##### ######## ############# ##################### ##################################
@@ -51,7 +61,7 @@ file mkdir build install
 cd build
 
 puts {....CONFIGURE}
-exec >>& $log $configure --enable-threads --prefix=$dst/install
+exec >>& $log $configure --enable-threads --prefix=$dst
 
 puts {....MAKE}
 exec >>& $log make all install
@@ -60,7 +70,7 @@ exec >>& $log make all install
 ## Run the post-build code.
 
 cd $here
-set xcmd [linsert $cmd 1 $repo $uuid $checkout]
+set xcmd [list $cmd $repo $uuid {*}$cargs]
 
 catch {
     puts ".......... : $xcmd"
@@ -68,5 +78,5 @@ catch {
 }
 
 # # ## ### ##### ######## ############# ##################### ##################################
-puts {....DONE}
+puts {....DONE BUILD}
 exit 0

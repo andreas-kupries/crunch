@@ -1,10 +1,58 @@
-Example command:
+Usage
+=====
 
-% ./process state ../../repo/tcl.fossil ./build_tcl ./build_ok build/tclsh ./save_check 
+Starting from the example script "main".
 
-Taking it apart, as scripts are run.
+We are in some directory X
+We have the fossil repository for tcl at /path/to/tcl.fossil
+
+Running
+	/path/to/crunch/main /path/to/tcl.fossil
+
+builds the revisions of Tcl, from the tip back into the past, in
+reverse order of committing. Note that this does not follow parental
+linkage, or branches. It follows time and jumps between branches/forks
+as they come.
+
+The scripts involved from 'main' are:
+
+process
+	Set up things in X, then checkout revisions and run the
+	command below.
+
+build_tcl
+	Configure and make the current revision, expected in a fixed
+	location under X. Then run the command below. Note that the
+	script will run the command regardless of build success or
+	failure. Indeed, it is the responsbility of the called command
+	to determine whether the build succeeded or not.
+
+	This build script assumes unix/configure, win/configure,
+	generally $tcl_platform(platform)/configure
+
+	Write derivations for TEA extensions, and other build systems.
+
+build_ok
+	Called with the path of the sentinel file, relative to X whose
+	presence indicates success.
+	
+	Write other scripts if the test for success is done
+	differently.
+
+	Runs the command below with the result of the test.
+
+save_ok
+	Called with build result (ok, fail), saves this information
+	in a plain text file.
+
+	For other actions, like running the testsuite, or benchmarks,
+	write a replacement script to the same API.
 
 ==============================================
+
+Taking the command line apart, as scripts are run:
+
+
 ./process state ../../repo/tcl.fossil ./build_tcl ./build_ok build/tclsh ./save_check 
 
 	Saves its state information to		state
@@ -15,49 +63,49 @@ Taking it apart, as scripts are run.
 
 	Runs the following command on each revision.
 
-	./build_tcl %repo% %uuid% %checkout% ./build_ok build/tclsh ./save_check
+	./build_tcl %repo% %uuid% ./build_ok build/tclsh ./save_check
 
-	%checkout% is the base directory for temp build state.
+	Build state is in the current working directory.
 	Sub directory 'src' is where the revision is checked out into.
 
 ==============================================
-./build_tcl %repo% %uuid% %checkout% ./build_ok build/tclsh ./save_check
+./build_tcl %repo% %uuid% ./build_ok build/tclsh ./save_check
 
-	Looks for the sources in %checkout%/src
+	Looks for the sources in src
 	Assumes that the sources are for revision %uuid%.
 	Builds the sources, placing build state into
 
-		%checkout%/build/build		build directory
-		%checkout%/build/install	build destination, --prefix
-		%checkout%/build/log		build log (configure, make)
+		build	- build directory
+		install	- install destination, --prefix
+		log	- build log (configure, make)
 
+	All relative to current working directory.
 	After each build, successful or not it calls
 
-	./build_ok %repo% %uuid% %checkout% build/tclsh ./save_check
+	./build_ok %repo% %uuid% build/tclsh ./save_check
 
 	to check if the build was succesful, or not.
 
 ==============================================
-./build_ok %repo% %uuid% %checkout% build/tclsh ./save_check
-
-	Looks for the sources in %checkout%/src
-	Looks for the build in %checkout%/build
+./build_ok %repo% %uuid% build/tclsh ./save_check
 
 	Looks for the sentinel file
 
-		%checkout%/build/build/tclsh
+		build/tclsh
+
+	Relative to current working directory.
 
 	If present, build is OK, otherwise FAIL.
 	Calls
 
-	./save_check %repo% %uuid% %checkout% %result%
+	./save_check %repo% %uuid% %result%
 
 	with this result.
 
 ==============================================
-./save_check %repo% %uuid% %checkout% %result%
+./save_check %repo% %uuid% %result%
 
 	Extends the file
-		%checkout%/results/ok
+		okfai.results.txt
 
 	with a line listing %result% and %uuid%.

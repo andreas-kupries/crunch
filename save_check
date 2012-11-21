@@ -1,22 +1,37 @@
 #!/usr/bin/env tclsh8.5
 # -*- tcl -*-
-package require Tcl 8.5
 
-# arguments
-# ----------------------------------------------
-# - repository (path to fossil file)
-# - uuid       (revision to checkout and build)
-# - path to tmp space holding the checkout (sub dir 'src')
-# - build result OK|FAIL
+# Arguments
+#
+# repository - path to fossil repository
+# uuid       - revision to build, already checked out.
+# signal     - OK|FAIL from a build check script (ex: build_ok).
+
+# Side channel arguments
+#
+# * CWD/src     - Checkout of revision to build
+# * CWD/build   - Build directory with results
+# * CWD/install - Install directory (--prefix)
+# * CWD/log     - Build log, configure & make
+
+# Results
+#
+# * CWD/okfail.results.txt - Saved per-uuid OK/FAIL information.
+
+package require Tcl 8.5
 
 # # ## ### ##### ######## ############# ##################### ##################################
 
-lassign $argv repo uuid checkout signal
+lassign $argv repo uuid signal
 
-set res [file normalize $checkout/results]
-set ch  [open $res/ok a]
+puts {SAVE....}
+puts "....ID....... $uuid"
+puts "....STATUS... $signal"
+
+set ch  [open okfail.results.txt a]
 puts  $ch [list $signal $uuid]
 close $ch
 
 # # ## ### ##### ######## ############# ##################### ##################################
+puts {....DONE SAVE}
 exit 0

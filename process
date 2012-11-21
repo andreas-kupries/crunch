@@ -1,5 +1,21 @@
 #!/usr/bin/env tclsh
 # -*- tcl -*-
+
+# Arguments.
+#
+# state - database holding processing state for easy restart after an
+#         abort. I.e. restart at point of abort, without re-doing the
+#	  completed parts. database is created if not existing.
+#
+# repo  - fossil repository we are working from.
+#
+# cmd   - Command run per revision. List. Contains command and arguments.
+
+# Results.
+#
+# * Runs the command per revision.
+# * CWD/src - Checkout of the current revision.
+
 package require Tcl 8.5
 package require sqlite3
 
@@ -8,15 +24,8 @@ if {[llength $argv] < 3} {
     exit 1
 }
 
-set cmd [lassign $argv state repo]
-
-# state - database holding processing state for easy restart after an
-#         abort. I.e. restart at point of abort, without re-doing the
-#	  completed parts. database is created if not existing.
-
-# repo  - fossil repository we are working from.
-
-# cmd   - Command run per revision. List. Contains command and arguments.
+set cargs [lassign $argv state repo cmd]
+set cmd [file normalize $cmd]
 
 if {![file exists $repo]} {
     puts stderr "Usage: $argv0 state repository cmd ...\nrepository does not exist"
@@ -24,7 +33,7 @@ if {![file exists $repo]} {
 }
 
 set repo [file normalize $repo]
-set base [file normalize checkout]
+set base [file normalize [pwd]]
 
 sqlite3 DB $repo
 
@@ -44,11 +53,11 @@ puts {SETUP CHECKOUT ...}
 # Generate a checkout of the chosen revision under the current
 # working directory.
 
-file delete -force $base/src
-file mkdir $base/src
-cd $base/src
+file delete -force src
+file mkdir src
+cd src
 exec >@ stdout 2>@ stderr fossil open $repo
-cd ../..
+cd ..
 
 # Pull timeline, exclude anything we have done already, and then run
 # the command on the remaining revisions, in order from past to future.
@@ -70,26 +79,31 @@ DB eval {
     ORDER BY L.mtime DESC
 } values {
     set uuid $values(uuid)
+
+    puts "======================================================="
     puts "Processing : $uuid"
 
-    cd $base/src
+    cd src
     exec >@ stdout 2>@ stderr fossil update $uuid
-    cd ../..
+    cd ..
 
     puts "Ready for  : $uuid"
 
-    set xcmd [linsert $cmd 1 $repo $uuid $base]
+    set xcmd [list $cmd $repo $uuid {*}$cargs]
 
-    incr count
     if {![catch {
 	puts ".......... : $xcmd"
 	exec >@ stdout 2>@ stderr {*}$xcmd
-    }]} {
+	incr count
+    } msg]} {
 	DB transaction {
 	    DB eval {
 		INSERT INTO STATE.done VALUES ( $uuid )
 	    }
 	}
+    } else {
+	puts "FAIL: $msg"
+	break
     }
 }
 
