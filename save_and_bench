@@ -47,17 +47,18 @@ exec >& BENCHMARK $bench/runbench.tcl \
     -verbose \
     -notk \
     -paths build \
-    -output text
+    -output csv
 
 set elapsed [lindex [exec grep milliseconds BENCHMARK] 0]
+set synelap [lindex [exec grep synthetic    BENCHMARK] 0]
 
 # # ## ### ##### ######## ############# ##################### ##################################
 ## Collect the permanent benchmark results.
 
-puts "....ELAPSED $elapsed"
+puts "....ELAPSED $elapsed - $synelap"
 
 set    ch [open bench.results.txt a]
-puts  $ch [list BENCH $uuid $elapsed]
+puts  $ch [list BENCH $uuid $elapsed $synelap]
 close $ch
 
 file mkdir bench

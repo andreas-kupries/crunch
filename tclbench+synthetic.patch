@@ -1,0 +1,193 @@
+Index: libbench.tcl
+===================================================================
+RCS file: /cvsroot/tcllib/tclbench/libbench.tcl,v
+retrieving revision 1.17
+diff -w -u -r1.17 libbench.tcl
+--- libbench.tcl	30 Nov 2010 19:43:06 -0000	1.17
++++ libbench.tcl	22 Nov 2012 23:39:29 -0000
+@@ -9,7 +9,7 @@
+ # Copyright (c) 2000-2001 Jeffrey Hobbs.
+ 
+ # We will put our data into these named globals
+-global BENCH bench
++global BENCH bench synthetic actual
+ 
+ #
+ # We claim all procedures starting with bench*
+@@ -88,7 +88,7 @@
+ #   Sets up data in bench global array
+ #
+ proc bench {args} {
+-    global BENCH bench errorInfo errorCode
++    global BENCH bench errorInfo errorCode synthetic actual
+ 
+     # -pre script
+     # -body script
+@@ -148,6 +148,8 @@
+ 	    puts $BENCH(OUTFID) [list Sourcing "$opts(-desc): $res"]
+ 	} else {
+ 	    set iter $opts(-iter)
++	    set prescale $iter
++
+ 	    if {!$code && $opts(-autoscale)} {
+ 		# Ensure total test runtime is 0.1s < $runtime < 4s.
+ 		# time reports in microsecs.
+@@ -165,7 +167,7 @@
+ 		}
+ 	    }
+ 	    set code [catch {uplevel \#0 [list time $opts(-body) $iter]} res]
+-	    if {!$BENCH(THREADS)} {
++
+ 		if {$code == 0} {
+ 		    # Get just the microseconds value from the time result
+ 		    set res [lindex $res 0]
+@@ -174,13 +176,15 @@
+ 		    # suite. Otherwise throw errors all the way out, unless
+ 		    # we specified not to throw errors (option -errors 0 to
+ 		    # libbench).
+-		    if {$BENCH(ERRORS)} {
+-			return -code $code -errorinfo $errorInfo \
+-				-errorcode $errorCode
+-		    } else {
+ 			set res "ERR"
+ 		    }
++
++	    if {!$BENCH(THREADS)} {
++		if {($res == "ERR") && $BENCH(ERRORS)} {
++		    return -code $code -errorinfo $errorInfo \
++			-errorcode $errorCode
+ 		}
++
+ 		set bench($opts(-desc)) $res
+ 		puts $BENCH(OUTFID) [list Sourcing "$opts(-desc): $res"]
+ 	    } else {
+@@ -188,6 +192,27 @@
+ 		thread::send $BENCH(us) \
+ 			[list thread_report $opts(-desc) $code $res]
+ 	    }
++
++	    if {$res != "ERR"} {
++		# Aggregate synthetic elapsed.
++		# Note that res == time-for-#iter/#iter
++		set delta [expr {$prescale * $res}]
++
++		if {!$BENCH(THREADS)} {
++		    set synthetic [expr {$synthetic + $delta}]
++		} else {
++		    thread::send $BENCH(us) [list thread_report_syn $delta]
++		}
++	    }
++
++	    # Aggregate synthetic actual elapsed.
++	    if {!$BENCH(THREADS)} {
++		set delta [expr {$iter * $res}]
++
++		set actual [expr {$actual + $delta}]
++	    } else {
++		thread::send $BENCH(us) [list thread_report_act $delta]
++	    }
+ 	}
+     }
+     if {($opts(-post) != "") && [catch {uplevel \#0 $opts(-post)} err] \
+@@ -282,6 +307,9 @@
+ # the data will be collected in via an 'array set'.
+ #
+ 
++set synthetic 0.0
++set actual    0.0
++
+ if {$BENCH(THREADS)} {
+     # Each file must run in it's own thread because of all the extra
+     # header stuff they have.
+@@ -348,33 +376,41 @@
+ 	}
+     }
+ 
++    proc thread_report_syn {delta} {
++	global synthetic
++	set synthetic [expr {$synthetic + $delta}]
++	return
++    }
++
++    proc thread_report_act {delta} {
++	global actual
++	set actual [expr {$actual + $delta}]
++	return
++    }
++
+     proc thread_report {desc code res} {
+-	global BENCH bench errorInfo errorCode
++	# Where is the error* data coming from?  The thread called
++	# back here, async. It did not provide the error* information
++	# in our arguments.
+ 
+-	if {$code == 0} {
+-	    # Get just the microseconds value from the time result
+-	    set res [lindex $res 0]
+-	} elseif {$code != 666} {
+-	    # A 666 result code means pass it through to the bench suite.
+-	    # Otherwise throw errors all the way out, unless we specified
+-	    # not to throw errors (option -errors 0 to libbench).
+-	    if {$BENCH(ERRORS)} {
++	global BENCH bench errorInfo errorCode
++	if {($res == "ERR") && $BENCH(ERRORS)} {
+ 		return -code $code -errorinfo $errorInfo \
+ 			-errorcode $errorCode
+-	    } else {
+-		set res "ERR"
+-	    }
+ 	}
+ 	set bench($desc) $res
+     }
+ 
+     proc thread_finish {{delay 4000}} {
+-	global BENCH bench
++	global BENCH bench synthetic actual
+ 	set val [expr {[llength [thread::names]] > 1}]
+ 	#set val [expr {$BENCH(inuse)}]
+ 	if {$val} {
+ 	    after $delay [info level 0]
+ 	} else {
++	    puts $BENCH(OUTFID) [list @synthetic $synthetic]
++	    puts $BENCH(OUTFID) [list @actual    $actual]
++
+ 	    foreach desc [array names bench] {
+ 		puts $BENCH(OUTFID) [list $desc $bench($desc)]
+ 	    }
+@@ -399,6 +435,13 @@
+ 	}
+     }
+ 
++    # Scale aggregates down to milliseconds
++    #set synthetic [expr {int($synthetic/1000)}]
++    #set actual    [expr {int($actual/1000)}]
++
++    puts $BENCH(OUTFID) [list @synthetic $synthetic]
++    puts $BENCH(OUTFID) [list @actual    $actual]
++
+     foreach desc [array names bench] {
+ 	puts $BENCH(OUTFID) [list $desc $bench($desc)]
+     }
+Index: runbench.tcl
+===================================================================
+RCS file: /cvsroot/tcllib/tclbench/runbench.tcl,v
+retrieving revision 1.30
+diff -w -u -r1.30 runbench.tcl
+--- runbench.tcl	16 Feb 2011 19:07:53 -0000	1.30
++++ runbench.tcl	22 Nov 2012 23:39:29 -0000
+@@ -398,7 +398,15 @@
+ 		if {[info exists celapsed]} {
+ 		    vputs stdout "$celapsed milliseconds"
+ 		}
++		if {[info exists tmp(@synthetic)]} {
++		    vputs stdout "$tmp(@synthetic) synthetic"
+ 	    }
++		if {[info exists tmp(@actual)]} {
++		    vputs stdout "$tmp(@actual) actual"
++		}
++	    }
++	    catch { unset tmp(@synthetic) }
++	    catch { unset tmp(@actual) }
+ 	    catch { unset tmp(Sourcing) }
+ 	    if {$opts(autoscale) != $auto} {
+ 		# Toss data where autoscale is tweaked (e.g. if we are
