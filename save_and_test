@@ -1,0 +1,83 @@
+#!/usr/bin/env tclsh8.5
+# -*- tcl -*-
+
+# Arguments
+#
+# repository - path to fossil repository
+# uuid       - revision to build, already checked out.
+# signal     - OK|FAIL from a build check script (ex: build_ok).
+
+# Side channel arguments
+#
+# * CWD/src     - Checkout of revision to build
+# * CWD/build   - Build directory with results
+# * CWD/install - Install directory (--prefix)
+# * CWD/log     - Build log, configure & make
+
+# Results
+#
+# * CWD/okfail.results.txt                - Saved per-uuid OK/FAIL information.
+# * CWD/test.results.txt                  - Saved per-uuid test statistics (OK only).
+# * CWD/fail/<uuid>.txt(.bz2)             - Logs of failed builds
+# * CWD/ok/<uuid>.txt(.bz2)               - Test suite output for ok builds.
+# * CWD/fail/<uuid>-test.txt(.bz2)        - Test suite FAILURES, if any
+
+# External Tools - grep, bzip2, (g)make
+
+
+package require Tcl 8.5
+
+# # ## ### ##### ######## ############# ##################### ##################################
+
+lassign $argv repo uuid signal
+set here [pwd]
+
+puts {SAVE....}
+puts "....ID....... $uuid"
+puts "....STATUS... $signal"
+
+set ch  [open okfail.results.txt a]
+puts  $ch [list $signal $uuid]
+close $ch
+
+if {$signal eq "FAIL"} {
+    file mkdir fail
+    file copy log fail/$uuid.txt
+
+    exec bzip2 fail/$uuid.txt
+} else {
+    puts {TEST....}
+
+    file mkdir ok
+    cd build
+
+    exec >& ../ok/$uuid.txt \
+	make test {TCLTEST_OPTIONS=-verbose bpsten}
+
+    cd ../ok
+
+    set summary [exec grep all $uuid.txt | grep Total]
+    lassign $summary _ _ total _ passed _ skipped _ failed
+
+    puts "....TOTAL   $total"
+    puts "....PASSED  $passed"
+    puts "....SKIPPED $skipped"
+    puts "....FAILED  $failed"
+
+    if {$failed} {
+	file mkdir ../fail
+	exec grep FAILED $uuid.txt > ../fail/${uuid}-test.txt
+	exec bzip2 ../fail/${uuid}-test.txt
+    }
+
+    exec bzip2 $uuid.txt
+
+    cd ..
+    set    ch [open test.results.txt a]
+    puts  $ch [list TEST $uuid T $total P $passed S $skipped F $failed]
+    close $ch
+}
+
+# # ## ### ##### ######## ############# ##################### ##################################
+puts {....DONE SAVE & TEST}
+exit 0

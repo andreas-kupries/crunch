@@ -18,6 +18,8 @@
 # * CWD/install - Install directory (--prefix)
 # * CWD/log     - Build log, configure & make
 
+# External Tools - a cc, (g)make.
+
 package require Tcl 8.5
 
 # # ## ### ##### ######## ############# ##################### ##################################

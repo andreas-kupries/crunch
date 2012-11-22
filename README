@@ -20,6 +20,10 @@ process
 	Set up things in X, then checkout revisions and run the
 	command below.
 
+	A possible replacement could simply take a list of revisions
+	(cmdline, file?) to build. I.e. if we are comparing specific
+	revisions and not gathering stats for all and sundry.
+
 build_tcl
 	Configure and make the current revision, expected in a fixed
 	location under X. Then run the command below. Note that the
@@ -41,12 +45,21 @@ build_ok
 
 	Runs the command below with the result of the test.
 
-save_ok
+save_check
 	Called with build result (ok, fail), saves this information
 	in a plain text file.
 
 	For other actions, like running the testsuite, or benchmarks,
 	write a replacement script to the same API.
+
+	Examples:
+		save_fail
+			Like save_check, but also saves the
+			configure/make log output for failed builds.
+
+		save_and_test
+			Saves like save_fail, and runs the test suite
+			for OK builds. Saves the test output.
 
 ==============================================
 
