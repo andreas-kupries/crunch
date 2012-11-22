@@ -1,0 +1,69 @@
+#!/usr/bin/env tclsh8.5
+# -*- tcl -*-
+
+# Arguments
+#
+# repository - path to fossil repository
+# uuid       - revision to build, already checked out.
+# signal     - OK|FAIL from a build check script (ex: build_ok).
+# bench      - path to tclbench benchmark
+
+# Side channel arguments
+#
+# * CWD/src     - Checkout of revision to build
+# * CWD/build   - Build directory with results
+# * CWD/install - Install directory (--prefix)
+# * CWD/log     - Build log, configure & make
+
+# Results
+#
+# * CWD/bench.results.txt      - Saved per-uuid basic bench statistics (OK only).
+# * CWD/bench/<uuid>.txt(.bz2) - Benchmark output (OK only)
+
+# External Tools - grep, bzip2, (g)make
+
+package require Tcl 8.5
+
+# # ## ### ##### ######## ############# ##################### ##################################
+
+lassign $argv repo uuid signal bench
+set here  [pwd]
+set bench [file normalize $bench]
+
+puts {SAVE....}
+puts "....ID....... $uuid"
+puts "....STATUS... $signal"
+puts "....CHECKOUT. $here"
+puts "....BENCH.... $bench"
+
+if {$signal eq "FAIL"} {
+    puts {....DONE SAVE}
+    exit 0
+}
+
+puts {BENCH....}
+
+exec >& BENCHMARK $bench/runbench.tcl \
+    -verbose \
+    -notk \
+    -paths build \
+    -output text
+
+set elapsed [lindex [exec grep milliseconds BENCHMARK] 0]
+
+# # ## ### ##### ######## ############# ##################### ##################################
+## Collect the permanent benchmark results.
+
+puts "....ELAPSED $elapsed"
+
+set    ch [open bench.results.txt a]
+puts  $ch [list BENCH $uuid $elapsed]
+close $ch
+
+file mkdir bench
+file rename BENCHMARK bench/$uuid.txt
+exec bzip2 bench/$uuid.txt
+
+# # ## ### ##### ######## ############# ##################### ##################################
+puts {....DONE SAVE & BENCH}
+exit 0
