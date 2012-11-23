@@ -63,10 +63,14 @@ file mkdir         build install
 cd build
 
 puts {....CONFIGURE}
-exec >>& $log $configure --enable-threads --prefix=$dst
+catch {
+    exec >>& $log $configure --enable-threads --prefix=$dst
+}
 
 puts {....MAKE}
-exec >>& $log make all install
+catch {
+    exec >>& $log make all install
+}
 
 # # ## ### ##### ######## ############# ##################### ##################################
 ## Run the post-build code.
