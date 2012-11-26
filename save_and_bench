@@ -49,8 +49,18 @@ exec >& BENCHMARK $bench/runbench.tcl \
     -paths build \
     -output csv
 
-set elapsed [lindex [exec grep milliseconds BENCHMARK] 0]
-set synelap [lindex [exec grep synthetic    BENCHMARK] 0]
+if {[catch {
+    # Note: Runtime errors may prevent proper execution of benchmarks.
+    # In that case our markers are missing. We simply stop, we have
+    # nothing to save.
+
+    set elapsed [lindex [exec grep milliseconds BENCHMARK] 0]
+    set synelap [lindex [exec grep synthetic    BENCHMARK] 0]
+} msg]} {
+    puts {....ELAPSED unknown}
+    puts {....DONE SAVE & BENCH (FAIL)}
+    exit 0
+}
 
 # # ## ### ##### ######## ############# ##################### ##################################
 ## Collect the permanent benchmark results.
