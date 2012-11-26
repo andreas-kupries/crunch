@@ -105,5 +105,16 @@ proc ::crunch::revisions::all {} {
     }]
 }
 
+proc ::crunch::revisions::path {from to} {
+    puts {revisions: path $from ... $to}
+    R close
+
+    set res {}
+    foreach line [split [exec fossil test-shortest-path $from $to] \n] {
+	lappend res [lindex $line 2]
+    }
+    return $res
+}
+
 # # ## ### ##### ######## ############# ##################### ##################################
 return
