@@ -100,6 +100,7 @@ proc ::crunch::revisions::all {} {
 	SELECT   B.uuid
 	FROM     event E, blob B
 	WHERE    E.objid = B.rid
+	AND      E.type = 'ci'
 	ORDER BY E.mtime
 	DESC
     }]
