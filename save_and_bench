@@ -31,12 +31,20 @@ set here  [pwd]
 set bench [file normalize $bench]
 
 puts {SAVE....}
-puts "....ID....... $uuid"
-puts "....STATUS... $signal"
-puts "....CHECKOUT. $here"
-puts "....BENCH.... $bench"
+#puts "....ID....... $uuid"
+puts "....STATUS... $uuid $signal"
+#puts "....CHECKOUT. $here"
+#puts "....BENCH.... $bench"
+
+set ch  [open okfail.results.txt a]
+puts  $ch [list $signal $uuid]
+close $ch
 
 if {$signal eq "FAIL"} {
+    file mkdir fail
+    file copy log fail/$uuid.txt
+    exec bzip2 -f fail/$uuid.txt
+
     puts {....DONE SAVE}
     exit 0
 }
@@ -57,7 +65,12 @@ if {[catch {
     set elapsed [lindex [exec grep milliseconds BENCHMARK] 0]
     set synelap [lindex [exec grep synthetic    BENCHMARK] 0]
 } msg]} {
-    puts {....ELAPSED unknown}
+    puts "....ELAPSED $uuid unknown"
+
+    file mkdir benchfail
+    file rename -force BENCHMARK benchfail/$uuid.txt
+    exec bzip2 -f benchfail/$uuid.txt
+
     puts {....DONE SAVE & BENCH (FAIL)}
     exit 0
 }
@@ -65,15 +78,15 @@ if {[catch {
 # # ## ### ##### ######## ############# ##################### ##################################
 ## Collect the permanent benchmark results.
 
-puts "....ELAPSED $elapsed - $synelap"
+puts "....ELAPSED $uuid $elapsed - $synelap"
 
 set    ch [open bench.results.txt a]
 puts  $ch [list BENCH $uuid $elapsed $synelap]
 close $ch
 
 file mkdir bench
-file rename BENCHMARK bench/$uuid.txt
-exec bzip2 bench/$uuid.txt
+file rename -force BENCHMARK bench/$uuid.txt
+exec bzip2 -f bench/$uuid.txt
 
 # # ## ### ##### ######## ############# ##################### ##################################
 puts {....DONE SAVE & BENCH}
