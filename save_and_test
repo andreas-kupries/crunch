@@ -44,7 +44,7 @@ if {$signal eq "FAIL"} {
     file mkdir fail
     file copy log fail/$uuid.txt
 
-    exec bzip2 fail/$uuid.txt
+    exec bzip2 -f fail/$uuid.txt
 } else {
     puts {TEST....}
 
@@ -67,10 +67,10 @@ if {$signal eq "FAIL"} {
     if {$failed} {
 	file mkdir ../fail
 	exec grep FAILED $uuid.txt > ../fail/${uuid}-test.txt
-	exec bzip2 ../fail/${uuid}-test.txt
+	exec bzip2 -f ../fail/${uuid}-test.txt
     }
 
-    exec bzip2 $uuid.txt
+    exec bzip2 -f $uuid.txt
 
     cd ..
     set    ch [open test.results.txt a]
